@@ -8,6 +8,7 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import javax.swing.table.DefaultTableModel;
@@ -16,7 +17,6 @@ import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
 import org.jfree.chart.plot.PiePlot;
 import org.jfree.data.general.DefaultPieDataset;
-import java.sql.Date;
 import javax.swing.JOptionPane;
 
 /**
@@ -89,35 +89,32 @@ public class HomePage extends javax.swing.JFrame {
     }
 
     public void setDataToCards() {
+        String pendingStatus = "Pending...";
+        String sql = "SELECT "
+                + "(SELECT COUNT(*) FROM book_details) AS book_count, "
+                + "(SELECT COUNT(*) FROM student_details) AS student_count, "
+                + "(SELECT COUNT(*) FROM issue_book_details WHERE status = ?) AS issued_count, "
+                + "(SELECT COUNT(*) FROM issue_book_details "
+                + " WHERE due_date < CURRENT_DATE() AND status = ?) AS overdue_count";
 
-        Statement st;
-        ResultSet rs;
-        long l = System.currentTimeMillis();
-        Date todaysDate = new Date(l);
+        try (Connection con = DBConnection.getConnection();
+                PreparedStatement pst = con.prepareStatement(sql)) {
+            pst.setString(1, pendingStatus);
+            pst.setString(2, pendingStatus);
 
-        try {
-            Connection con = DBConnection.getConnection();
-            //some jbdc doesn't support getRow(), this is only available for scroll insensitive
-            //so we're making Statement as SCROLL INSENSITIVE
-            st = con.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
-            rs = st.executeQuery("select * from book_details");
-            rs.last();
-            lbl_noOfBooks.setText(Integer.toString(rs.getRow()));
-
-            rs = st.executeQuery("select * from student_details");
-            rs.last();
-            lbl_noOfStudents.setText(Integer.toString(rs.getRow()));
-
-            rs = st.executeQuery("select * from issue_book_details where status = '" + "Pending..." + "' ");
-            rs.last();
-            lbl_issueBooks.setText(Integer.toString(rs.getRow()));
-
-            rs = st.executeQuery("select * from issue_book_details where due_date < '" + todaysDate + "' and status = '" + "Pending..." + "' ");
-            rs.last();
-            lbl_defaulterList.setText(Integer.toString(rs.getRow()));
-
+            try (ResultSet rs = pst.executeQuery()) {
+                if (rs.next()) {
+                    lbl_noOfBooks.setText(Integer.toString(rs.getInt("book_count")));
+                    lbl_noOfStudents.setText(Integer.toString(rs.getInt("student_count")));
+                    lbl_issueBooks.setText(Integer.toString(rs.getInt("issued_count")));
+                    lbl_defaulterList.setText(Integer.toString(rs.getInt("overdue_count")));
+                }
+            }
         } catch (Exception e) {
-            e.getMessage();
+            JOptionPane.showMessageDialog(this,
+                    "Could not load dashboard totals: " + e.getMessage(),
+                    "Database error", JOptionPane.ERROR_MESSAGE);
+            e.printStackTrace();
         }
     }
 

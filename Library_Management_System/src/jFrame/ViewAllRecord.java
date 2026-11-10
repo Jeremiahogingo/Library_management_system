@@ -62,41 +62,60 @@ public class ViewAllRecord extends javax.swing.JFrame {
         model.setRowCount(0);
     }
 
-    //to fetch the record using date field
+    // Fetch issue records for an inclusive issue-date range.
     public void search() {
-        java.util.Date uFromDate = date_fromDate.getDatoFecha();
-        java.util.Date uToDate = date_toDate.getDatoFecha();
-        long l1 = uFromDate.getTime();
-        long l2 = uToDate.getTime();
+        java.util.Date selectedFromDate = date_fromDate.getDatoFecha();
+        java.util.Date selectedToDate = date_toDate.getDatoFecha();
 
-        java.sql.Date fromDate = new java.sql.Date(l1);
-        java.sql.Date toDate = new java.sql.Date(l2);
-        try {
-            Connection con = DBConnection.getConnection();
-            String sql = "select * from issue_book_details where issue_date Between ? and ?";
-            PreparedStatement pst = con.prepareStatement(sql);
+        if (selectedFromDate == null || selectedToDate == null) {
+            JOptionPane.showMessageDialog(this,
+                    "Select both the start date and end date.",
+                    "Date range required", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        if (selectedFromDate.after(selectedToDate)) {
+            JOptionPane.showMessageDialog(this,
+                    "The start date must be on or before the end date.",
+                    "Invalid date range", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        java.sql.Date fromDate = new java.sql.Date(selectedFromDate.getTime());
+        java.sql.Date toDate = new java.sql.Date(selectedToDate.getTime());
+        String sql = "SELECT id, book_name, student_name, issue_date, due_date, status "
+                + "FROM issue_book_details WHERE issue_date BETWEEN ? AND ? "
+                + "ORDER BY issue_date DESC, id DESC";
+
+        try (Connection con = DBConnection.getConnection();
+                PreparedStatement pst = con.prepareStatement(sql)) {
             pst.setDate(1, fromDate);
             pst.setDate(2, toDate);
 
-            ResultSet rs = pst.executeQuery();
-            if (!rs.next()) {
-                JOptionPane.showMessageDialog(this, "No Record Found");
-            }
-            while (rs.next()) {
-                String id = rs.getString("id");
-                String bookName = rs.getString("book_name");
-                String StudentName = rs.getString("student_name");
-                String issueDate = rs.getString("issue_date");
-                String dueDate = rs.getString("due_date");
-                String status = rs.getString("status");
+            try (ResultSet rs = pst.executeQuery()) {
+                if (!rs.next()) {
+                    JOptionPane.showMessageDialog(this, "No records found for this date range.");
+                    return;
+                }
 
-                Object[] obj = {id, bookName, StudentName, issueDate, dueDate, status};
-                model = (DefaultTableModel) tbl_issuebookDetails.getModel();
-                model.addRow(obj);
+                do {
+                    Object[] row = {
+                        rs.getInt("id"),
+                        rs.getString("book_name"),
+                        rs.getString("student_name"),
+                        rs.getDate("issue_date"),
+                        rs.getDate("due_date"),
+                        rs.getString("status")
+                    };
+                    model = (DefaultTableModel) tbl_issuebookDetails.getModel();
+                    model.addRow(row);
+                } while (rs.next());
             }
-
         } catch (Exception e) {
-            e.getMessage();
+            JOptionPane.showMessageDialog(this,
+                    "Could not search issue records: " + e.getMessage(),
+                    "Database error", JOptionPane.ERROR_MESSAGE);
+            e.printStackTrace();
         }
     }
 
@@ -294,13 +313,18 @@ public class ViewAllRecord extends javax.swing.JFrame {
 
     private void rSMaterialButtonCircle2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_rSMaterialButtonCircle2ActionPerformed
         // TODO add your handling code here:
-        if(date_fromDate.getDatoFecha() != null && date_toDate.getDatoFecha() != null){
-            clearTable();
-            search();
+        if (date_fromDate.getDatoFecha() == null || date_toDate.getDatoFecha() == null) {
+            JOptionPane.showMessageDialog(this, "Please select both dates to search.");
+            return;
         }
-        else{
-            JOptionPane.showMessageDialog(this, "Please insert date to search");
+        if (date_fromDate.getDatoFecha().after(date_toDate.getDatoFecha())) {
+            JOptionPane.showMessageDialog(this,
+                    "The start date must be on or before the end date.",
+                    "Invalid date range", JOptionPane.WARNING_MESSAGE);
+            return;
         }
+        clearTable();
+        search();
     }//GEN-LAST:event_rSMaterialButtonCircle2ActionPerformed
 
     private void rSMaterialButtonRectangle1MouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_rSMaterialButtonRectangle1MouseClicked

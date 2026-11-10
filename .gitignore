@@ -1,0 +1,17 @@
+# Build output
+Library_Management_System/build/
+Library_Management_System/dist/
+
+# NetBeans machine-specific state
+Library_Management_System/nbproject/private/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.local.properties
+
+# Logs and operating-system files
+*.log
+.DS_Store
+Thumbs.db
